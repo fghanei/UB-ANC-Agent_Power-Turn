@@ -233,7 +233,7 @@ void UBAgent::stateMission() {
     static QGeoCoordinate dest;
     QByteArray info;
     unsigned long int now;
-    int hover_time=60;
+    int hover_time=120;
 
     now = QDateTime::currentMSecsSinceEpoch();
     switch (m_mission_data.stage) {
