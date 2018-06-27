@@ -12,10 +12,10 @@
 #include "TCPLink.h"
 #include "QGCApplication.h"
 
-int flight_direction = 90; //0  north, 90 east
-int flight_distance = 10;
-float target_stabilize_time = 2.0; //in seconds
-float target_wait_time = 5.0; //in seconds
+int flight_direction = 180; //0  north, 90 east
+int flight_distance = 100;
+float target_stabilize_time = 3.0; //in seconds
+float target_wait_time = 7.0; //in seconds
 
 UBAgent::UBAgent(QObject *parent) : QObject(parent),
     m_mav(nullptr)
