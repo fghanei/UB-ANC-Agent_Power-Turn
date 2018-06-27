@@ -12,6 +12,11 @@
 #include "TCPLink.h"
 #include "QGCApplication.h"
 
+int flight_direction = 90; //0  north, 90 east
+int flight_distance = 10;
+float target_stabilize_time = 2.0; //in seconds
+float target_wait_time = 5.0; //in seconds
+
 UBAgent::UBAgent(QObject *parent) : QObject(parent),
     m_mav(nullptr)
 {
@@ -129,8 +134,6 @@ void UBAgent::armedChangedEvent(bool armed) {
 
     m_mission_data.reset();
     qInfo() << "Mission starts...";
-    qInfo() << "Starting measurement";
-    m_power->sendData(UBPower::PWR_START, QByteArray());
 
     m_mission_state = STATE_TAKEOFF;
 //    m_mav->guidedModeTakeoff();
@@ -184,17 +187,19 @@ void UBAgent::stateIdle() {
 
 void UBAgent::stateTakeoff() {
     if (m_mission_data.stage == 0) {
-    	if (m_mav->altitudeRelative()->rawValue().toDouble() > TAKEOFF_ALT - POINT_ZONE) {
+        if (m_mav->altitudeRelative()->rawValue().toDouble() > TAKEOFF_ALT - POINT_ZONE) {
             m_mission_data.tick=0;
             m_mission_data.stage++;
-	}
+        }
     }
     if (m_mission_data.stage == 1) {
         m_mission_data.tick++;
-	if (m_mission_data.tick > (3.0 * 1.0 / MISSION_TRACK_DELAY - 0.001)) { //waiting for 3 seconds to stabilize
+        if (m_mission_data.tick > (3.0 * 1.0 / MISSION_TRACK_DELAY - 0.001)) { //waiting for 3 seconds to stabilize
             m_mission_data.stage = 0;
             m_mission_state = STATE_MISSION;
             qInfo() << "Takeoff completed.";
+            QGeoCoordinate dest = m_mav->coordinate().atDistanceAndAzimuth(0, flight_direction); // 0 -> North, 90 (M_PI / 2) -> East
+            m_mav->guidedModeGotoLocation(dest);
         }
     }
 }
@@ -221,61 +226,131 @@ void UBAgent::stateLand() {
             if (m_mission_data.tick >= (3.0 * 1.0 / MISSION_TRACK_DELAY - 0.001)) { //waiting for 3 seconds to stabilize
                 m_mission_data.stage = 0;
                 m_mission_state = STATE_IDLE;
-                qInfo() << "Finishing measurement.";
-                m_power->sendData(UBPower::PWR_STOP, QByteArray());
             }
             break;
          }
     }
 }
 
-void UBAgent::stateMission() {
-    static QGeoCoordinate dest;
+
+void UBAgent::logInfo() {
     QByteArray info;
     unsigned long int now;
-    int hover_time=120;
-
     now = QDateTime::currentMSecsSinceEpoch();
+    info += QByteArray::number(now/1000.0, 'f', 3);
+    info += "\tLAT="+ QByteArray::number(m_mav->latitude(), 'f', 20);
+    info += "\tLON="+ QByteArray::number(m_mav->longitude(), 'f', 20);
+    info += "\tALT="+ QByteArray::number(m_mav->altitudeRelative()->rawValue().toDouble(), 'f', 20);
+    info += "\tVEL="+ QByteArray::number(m_mav->groundSpeed()->rawValue().toDouble(), 'f', 20);
+    m_power->sendData(UBPower::PWR_INFO, info);
+}
+
+void UBAgent::stateMission() {
+    static QGeoCoordinate dest;
+
     switch (m_mission_data.stage) {
+
         case (0): {
             m_mission_data.tick = 0;
             m_mission_data.stage++;
-            qInfo() << "Sending EVENT packet";
-            m_power->sendData(UBPower::PWR_EVENT, QByteArray());
-            break;
-        }
-        // hover
+            qInfo() << "Turning...";
+            m_mav->sendMavCommand(m_mav->defaultComponentId(),  //fix heading
+                            MAV_CMD_CONDITION_YAW,
+                            true, // show error
+                            (flight_direction)%360, 10.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+	    break;
+	}
+        // waiting while fix heading
         case (1): {
             m_mission_data.tick++;
-            if (m_mission_data.tick%2==0) {
-	            // sending information to the logger, this works for tick = half a second
-	            info.clear();
-	            info += QByteArray::number(now/1000.0, 'f', 3);
-	            info += " Seconds passed: ";
-	            info += QByteArray::number(m_mission_data.tick/2);
-	            m_power->sendData(UBPower::PWR_INFO, info);
+            if (m_mission_data.tick >= (target_wait_time * 1.0 / MISSION_TRACK_DELAY - 0.001)) {
+                qInfo() << "Heading forward, starting power measurement.";
+                m_power->sendData(UBPower::PWR_START, QByteArray());
+                m_mission_data.tick = 0;
+                m_mission_data.stage++;
             }
-
-            if (m_mission_data.tick >= (hover_time * 1.0 / MISSION_TRACK_DELAY - 0.001)) {
-                qInfo() << "Hover complete, sending EVENT packet";
-                m_power->sendData(UBPower::PWR_EVENT, QByteArray());
+            break;
+         }
+        // move
+        case (2): {
+            dest = m_mav->coordinate().atDistanceAndAzimuth(flight_distance, flight_direction); // 0 -> North, 90 (M_PI / 2) -> East
+            m_mav->guidedModeGotoLocation(dest);
+            m_mission_data.tick=0;
+            m_mission_data.stage++;
+            break;
+        }    
+        // reaching and waiting
+        case (3): {
+	    // sending information to the logger
+            
+    	    if ((m_mav->coordinate().distanceTo(dest) < POINT_ZONE) &&
+                  (abs(m_mav->coordinate().altitude() - dest.altitude()) < POINT_ZONE)) {
+                m_mission_data.tick++;
+            }
+            if (m_mission_data.tick >= (target_stabilize_time * 1.0 / MISSION_TRACK_DELAY - 0.001)) {       
+                qInfo() << "Reached target, stopping measurement";
+                m_power->sendData(UBPower::PWR_STOP, QByteArray());
+                m_mission_data.tick=0;
+                m_mission_data.stage++;
+            }
+            break;
+        }
+        // landing? or skipping it? TODO 
+        case (4): {
+            m_mission_data.tick=0;
+            m_mission_data.stage++;
+            break;
+        }
+        // take off? and fix heading
+        case (5): {
+            qInfo() << "Turning...";
+            m_mav->sendMavCommand(m_mav->defaultComponentId(),
+                            MAV_CMD_CONDITION_YAW,
+                            true, // show error
+                            (180+flight_direction)%360, 10.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+            m_mission_data.stage++;
+            break;
+        }
+        // waiting while fix heading
+        case (6): {
+            m_mission_data.tick++;
+            if (m_mission_data.tick >= (target_wait_time * 1.0 / MISSION_TRACK_DELAY - 0.001)) {
+                qInfo() << "Heading back, starting power measurement.";
+                m_power->sendData(UBPower::PWR_START, QByteArray());
+                m_mission_data.stage++;
+            }
+            break;
+         }
+        // move back
+        case (7): {
+            dest = m_mav->coordinate().atDistanceAndAzimuth(flight_distance, (180+flight_direction)%360); // 0 -> North, 90 (M_PI / 2) -> East
+            m_mav->guidedModeGotoLocation(dest);
+            m_mission_data.tick=0;
+            m_mission_data.stage++;
+            break;
+        }    
+        // reaching and waiting
+        case (8): {
+	    // sending information to the logger TODO            
+    	    if ((m_mav->coordinate().distanceTo(dest) < POINT_ZONE) &&
+                  (abs(m_mav->coordinate().altitude() - dest.altitude()) < POINT_ZONE)) {
+                m_mission_data.tick++;
+            }
+            if (m_mission_data.tick >= (target_stabilize_time * 1.0 / MISSION_TRACK_DELAY - 0.001)) {       
+                qInfo() << "Reached target, stopping measurement.";
+                m_power->sendData(UBPower::PWR_STOP, QByteArray());
                 qInfo() << "Landing....";
                 m_mission_data.stage=0;
                 m_mission_state = STATE_LAND;
                 m_mav->guidedModeLand();
-//              m_mission_data.stage++;
             }
             break;
-         }
+        }
 //        //  arming next uav
 //        case (2): {
 //            m_net->sendData(m_mav->id() + 1, QByteArray(1, MAV_CMD_NAV_TAKEOFF));
 //            m_mission_data.stage++;
 //        }
-//        // move
-//        case (3): {
-//            dest = m_mav->coordinate().atDistanceAndAzimuth(10, 90); // 0 -> North, 90 (M_PI / 2) -> East
-//            m_mav->guidedModeGotoLocation(dest);
-//        }    
     }
+    logInfo();
 }

@@ -61,6 +61,8 @@ protected:
     UBPower* m_power;
 
     QTimer* m_timer;
+protected:
+    void logInfo();
 };
 
 #endif // UBAGENT_H
