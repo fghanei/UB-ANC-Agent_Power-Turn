@@ -342,8 +342,8 @@ void UBAgent::stateMission() {
             if (m_mav->coordinate().distanceTo(dest[dest_index]) < POINT_ZONE) {
                 approx = true;
                 qInfo() << "In point approximity";
-			}
-            if (approx == true){ 
+            }
+            if (approx == true) {
                 m_mission_data.tick++;
             }
             if (m_mission_data.tick >= (target_stabilize_time * 1.0 / MISSION_TRACK_DELAY - 0.001)) {       
@@ -356,7 +356,7 @@ void UBAgent::stateMission() {
                 }
                 m_mission_data.stage=0;
                 dest_index++;
-                approx=false;
+                approx = false;
             }
             break;
         }
