@@ -291,7 +291,7 @@ void UBAgent::logInfo() {
 
 void UBAgent::stateMission() {
     static int dest_index=0;
-    qInfo() << "dest_index: " << dest_index << " / stage: " << m_mission_data.stage;
+//    qInfo() << "dest_index: " << dest_index << " / stage: " << m_mission_data.stage;
     switch (m_mission_data.stage) {
         // waiting till target
         case (0): {
