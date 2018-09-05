@@ -15,9 +15,8 @@
 int flight_direction = 180; //0  north, 90 east
 int flight_distance = 50;
 float flight_speed = 5.0;
-float target_stabilize_time = 1.0; //in seconds
-float target_wait_time = 5.0; //in seconds
-QGeoCoordinate dest[16], start_point, mid_point, turn0_point, turn45_point, turn90_point, turn135_point;
+float target_wait_time = 1.0; //in seconds
+QGeoCoordinate dest[17], start_point, mid_point, turn0_point, turn45_point, turn90_point, turn135_point;
 
 UBAgent::UBAgent(QObject *parent) : QObject(parent),
     m_mav(nullptr)
@@ -77,6 +76,42 @@ void UBAgent::startAgent() {
     m_timer->start(1000.0*MISSION_TRACK_DELAY);
 
     m_mission_data.reset();
+
+            start_point  = QGeoCoordinate(43.0093, -78.7897, 5.0);
+            mid_point    = QGeoCoordinate(43.0088, -78.7897, 5.0);
+            turn0_point  = QGeoCoordinate(43.0084, -78.7897, 5.0);
+            turn45_point = QGeoCoordinate(43.0085, -78.7901, 5.0);
+            turn90_point = QGeoCoordinate(43.0088, -78.7903, 5.0);
+            turn135_point= QGeoCoordinate(43.0091, -78.7901, 5.0);
+
+
+            dest[0]  = start_point;
+            dest[1]  = mid_point; //must be skipped
+            dest[2]  = turn0_point;
+            dest[3]  = mid_point; //must be skipped
+            dest[4]  = start_point;
+            dest[5]  = mid_point;
+            dest[6]  = turn45_point;
+            dest[7]  = mid_point;
+            dest[8]  = start_point;
+            dest[9]  = mid_point;
+            dest[10] = turn90_point;
+            dest[11] = mid_point;
+            dest[12] = start_point;
+            dest[13] = mid_point;
+            dest[14] = turn135_point;
+            dest[15] = mid_point;
+            dest[16] = start_point;
+
+            qInfo() << "========";
+            qInfo() << "start:   " << start_point;
+            qInfo() << "mid:     " << mid_point;
+            qInfo() << "turn0:   " << turn0_point;
+            qInfo() << "turn45:  " << turn45_point;
+            qInfo() << "turn90:  " << turn90_point;
+            qInfo() << "turn135: " << turn135_point;
+
+
 }
 
 void UBAgent::setMAV(Vehicle* mav) {
@@ -197,45 +232,19 @@ void UBAgent::stateTakeoff() {
     if (m_mission_data.stage == 1) {
         m_mission_data.tick++;
         if (m_mission_data.tick > (3.0 * 1.0 / MISSION_TRACK_DELAY - 0.001)) { //waiting for 3 seconds to stabilize
-            m_mission_data.stage = 0;
-            m_mission_state = STATE_MISSION;
             qInfo() << "Takeoff completed.";
-            QGeoCoordinate dest = m_mav->coordinate().atDistanceAndAzimuth(0, flight_direction); // 0 -> North, 90 (M_PI / 2) -> East
-            m_mav->guidedModeGotoLocation(dest);
-        }
-    }
 
-
-    start_point  = m_mav->coordinate();
-    mid_point    = m_mav->coordinate().atDistanceAndAzimuth(flight_distance, flight_direction);
-    turn0_point  = mid_point.atDistanceAndAzimuth(flight_distance, flight_direction);
-    turn45_point = mid_point.atDistanceAndAzimuth(flight_distance, (flight_direction+45)%360);
-    turn90_point = mid_point.atDistanceAndAzimuth(flight_distance, (flight_direction+90)%360);
-    turn135_point= mid_point.atDistanceAndAzimuth(flight_distance, (flight_direction+135)%360);
-
-    dest[0]  = mid_point; //must be skipped
-    dest[1]  = turn0_point;
-    dest[2]  = mid_point; //must be skipped
-    dest[3]  = start_point;
-    dest[4]  = mid_point;
-    dest[5]  = turn45_point;
-    dest[6]  = mid_point;
-    dest[7]  = start_point;
-    dest[8]  = mid_point;
-    dest[9]  = turn90_point;
-    dest[10] = mid_point;
-    dest[11] = start_point;
-    dest[12] = mid_point;
-    dest[13] = turn135_point;
-    dest[14] = mid_point;
-    dest[15] = start_point;
-
-    m_mav->sendMavCommand(m_mav->defaultComponentId(),  //fix flight speed
+    	    m_mav->sendMavCommand(m_mav->defaultComponentId(),  //fix flight speed
                     MAV_CMD_DO_CHANGE_SPEED,
                     true, // show error
                     1, flight_speed, -1, 0, 0, 0, 0);            
 
-    
+            m_mav->guidedModeGotoLocation(start_point);
+
+            m_mission_data.stage = 0;
+            m_mission_state = STATE_MISSION;
+        }
+    }   
 }
 
 void UBAgent::stateLand() {
@@ -260,6 +269,7 @@ void UBAgent::stateLand() {
             if (m_mission_data.tick >= (3.0 * 1.0 / MISSION_TRACK_DELAY - 0.001)) { //waiting for 3 seconds to stabilize
                 m_mission_data.stage = 0;
                 m_mission_state = STATE_IDLE;
+                qInfo() << "You may now restart the mission by changing to LAND and then GUIDED mode.";
             }
             break;
          }
@@ -281,91 +291,64 @@ void UBAgent::logInfo() {
 
 void UBAgent::stateMission() {
     static int dest_index=0;
-    static bool approx = false;
-
+    qInfo() << "dest_index: " << dest_index << " / stage: " << m_mission_data.stage;
     switch (m_mission_data.stage) {
-
-	// heading next destination
+        // waiting till target
         case (0): {
-            //done with all
-            if (dest_index==16) {
-                qInfo() << "Landing....";
-                m_mission_data.stage=0;
-                m_mission_state = STATE_LAND;
-                m_mav->guidedModeLand();
-                break;
-            }
-            //skipping heading when on straight line
-            if (dest_index==1 || dest_index==3) {
-                m_mission_data.tick = 0;
-                m_mission_data.stage++;
-                qInfo() << "continuing on straight...";
-                break;
-            }
-            m_mission_data.tick = 0;
-            m_mission_data.stage++;
-            qInfo() << "Turning...";
-            //fix heading towards next destination
-            float direction = m_mav->coordinate().azimuthTo(dest[dest_index]);
-            m_mav->guidedModeGotoLocation(m_mav->coordinate().atDistanceAndAzimuth(0, direction)); // 0 -> North, 90 (M_PI / 2) -> East
-            m_mav->sendMavCommand(m_mav->defaultComponentId(),  //fix heading
-                            MAV_CMD_CONDITION_YAW,
-                            true, // show error
-                            direction, 10.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f);            
-	    break;
-	}
-        // waiting while fix heading, then move towards mid_point
-        case (1): {
-            m_mission_data.tick++;
-            // if our next destination is middle, we should wait for our heading and start measurement
-            if (dest_index%2==0) {
-                if (m_mission_data.tick < (target_wait_time * 1.0 / MISSION_TRACK_DELAY - 0.001)) {
-                    break;
-                }
-                qInfo() << "Heading forward, starting power measurement.";
-                m_power->sendData(UBPower::PWR_STOP, QByteArray()); // force stop any previous unfinished measurements.
-                m_power->sendData(UBPower::PWR_START, QByteArray());
-            }
-	    m_mav->guidedModeGotoLocation(dest[dest_index]);
-            m_mission_data.tick = 0;
-            m_mission_data.stage++;
-            break;
-         }
-        // waiting till reaching destination
-        case (2): {
-            //skipping stopping at middle for straight line
-            if (dest_index==0 || dest_index==2) {
-                m_mission_data.stage=0;
-                dest_index++;
-		break;
+            if (dest_index%2!=0) {
+                qInfo() << "WRONG STATE";
             }
             if (m_mav->coordinate().distanceTo(dest[dest_index]) < POINT_ZONE) {
-                approx = true;
-                qInfo() << "In point approximity";
-            }
-            if (approx == true) {
-                m_mission_data.tick++;
-            }
-            if (m_mission_data.tick >= (target_stabilize_time * 1.0 / MISSION_TRACK_DELAY - 0.001)) {       
-                if(dest_index%2 == 0) {
-                    qInfo() << "Reached middle, sending EVENT packet";
-                    m_power->sendData(UBPower::PWR_EVENT, QByteArray());
-                } else {
-                    qInfo() << "Reached destination, stopping measurement";
-                    m_power->sendData(UBPower::PWR_STOP, QByteArray());
-                }
-                m_mission_data.stage=0;
-                dest_index++;
-                approx = false;
+
+                qInfo() << "Getting close to the target, stopping power measurement.";
+                m_power->sendData(UBPower::PWR_STOP, QByteArray());
+                m_mission_data.stage++;
+                m_mission_data.tick = 0;
             }
             break;
         }
-//        //  arming next uav
-//        case (2): {
-//            m_net->sendData(m_mav->id() + 1, QByteArray(1, MAV_CMD_NAV_TAKEOFF));
-//            m_mission_data.stage++;
-//        }
+        // waiting till getting ready for heading again
+        case (1): {
+            if (dest_index%2!=0) {
+                qInfo() << "WRONG STATE";
+            }
+            m_mission_data.tick++;
+            if (m_mission_data.tick > (target_wait_time * 1.0 / MISSION_TRACK_DELAY - 0.001)) {
+                //enough waiting, we should be at the point, now we'll wait to leave again.
+                m_mission_data.stage++;
+                m_mission_data.tick = 0;
+                dest_index++;
+            }
+            break;
+        }
+        // start measuring as heading
+        case (2): {
+            if (dest_index%2!=1) {
+                qInfo() << "WRONG STATE";
+            }
+            if (m_mav->coordinate().distanceTo(dest[dest_index-1]) > POINT_ZONE) {
+                qInfo() << "Getting away from heading point, starting power measurement.";
+                m_power->sendData(UBPower::PWR_STOP, QByteArray());//stop any unfinished measurements, which should be ignored
+                m_power->sendData(UBPower::PWR_START, QByteArray());
+                m_mission_data.stage++;
+            }
+            break;
+        }
+        // waiting till mipoint for EVENT
+        case (3): {
+            if (dest_index%2!=1) {
+                qInfo() << "WRONG STATE";
+            }
+            if (m_mav->coordinate().distanceTo(dest[dest_index]) < POINT_ZONE) {
+                qInfo() << "Getting close to the mid_point, sending EVENT.";
+                m_power->sendData(UBPower::PWR_EVENT, QByteArray());
+                m_mission_data.stage=0;
+                dest_index++;
+            }
+            break;
+        }
     }
+
     // sending information to the logger
     logInfo();
 }
