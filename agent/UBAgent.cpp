@@ -12,8 +12,7 @@
 #include "TCPLink.h"
 #include "QGCApplication.h"
 
-int flight_direction = 180; //0  north, 90 east
-int flight_distance = 50;
+int dest_index=0;
 float flight_speed = 5.0;
 float target_wait_time = 1.0; //in seconds
 QGeoCoordinate dest[17], start_point, mid_point, turn0_point, turn45_point, turn90_point, turn135_point;
@@ -170,6 +169,8 @@ void UBAgent::armedChangedEvent(bool armed) {
     }
 
     m_mission_data.reset();
+    dest_index=0;
+    m_power->sendData(UBPower::PWR_STOP, QByteArray());
     qInfo() << "Mission starts...";
 
     m_mission_state = STATE_TAKEOFF;
@@ -239,7 +240,7 @@ void UBAgent::stateTakeoff() {
                     true, // show error
                     1, flight_speed, -1, 0, 0, 0, 0);            
 
-            m_mav->guidedModeGotoLocation(start_point);
+//            m_mav->guidedModeGotoLocation(start_point);
 
             m_mission_data.stage = 0;
             m_mission_state = STATE_MISSION;
@@ -290,7 +291,6 @@ void UBAgent::logInfo() {
 }
 
 void UBAgent::stateMission() {
-    static int dest_index=0;
 //    qInfo() << "dest_index: " << dest_index << " / stage: " << m_mission_data.stage;
     switch (m_mission_data.stage) {
         // waiting till target
@@ -298,7 +298,7 @@ void UBAgent::stateMission() {
             if (dest_index%2!=0) {
                 qInfo() << "WRONG STATE";
             }
-            if (m_mav->coordinate().distanceTo(dest[dest_index]) < POINT_ZONE) {
+            if (m_mav->coordinate().distanceTo(dest[dest_index]) < 5*POINT_ZONE) {
 
                 qInfo() << "Getting close to the target, stopping power measurement.";
                 m_power->sendData(UBPower::PWR_STOP, QByteArray());
@@ -326,7 +326,7 @@ void UBAgent::stateMission() {
             if (dest_index%2!=1) {
                 qInfo() << "WRONG STATE";
             }
-            if (m_mav->coordinate().distanceTo(dest[dest_index-1]) > POINT_ZONE) {
+            if (m_mav->coordinate().distanceTo(dest[dest_index-1]) > 10*POINT_ZONE) {
                 qInfo() << "Getting away from heading point, starting power measurement.";
                 m_power->sendData(UBPower::PWR_STOP, QByteArray());//stop any unfinished measurements, which should be ignored
                 m_power->sendData(UBPower::PWR_START, QByteArray());
@@ -339,7 +339,7 @@ void UBAgent::stateMission() {
             if (dest_index%2!=1) {
                 qInfo() << "WRONG STATE";
             }
-            if (m_mav->coordinate().distanceTo(dest[dest_index]) < POINT_ZONE) {
+            if (m_mav->coordinate().distanceTo(dest[dest_index]) < 5*POINT_ZONE) {
                 qInfo() << "Getting close to the mid_point, sending EVENT.";
                 m_power->sendData(UBPower::PWR_EVENT, QByteArray());
                 m_mission_data.stage=0;

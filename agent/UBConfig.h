@@ -15,11 +15,11 @@
 #define SERIAL_PORT "ttyACM0"
 #define BAUD_RATE   115200
 
-#define POINT_ZONE      5
+#define POINT_ZONE      1
 #define TAKEOFF_ALT     5
 #define GPS_ACCURACY    5
 
-#define MISSION_TRACK_DELAY  0.5  //delay in seconds, between iterations 
+#define MISSION_TRACK_DELAY  0.25  //delay in seconds, between iterations 
 
 #define SAVE_RATE   5
 
