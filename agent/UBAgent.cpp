@@ -76,12 +76,12 @@ void UBAgent::startAgent() {
 
     m_mission_data.reset();
 
-            start_point  = QGeoCoordinate(43.0093, -78.7897, 5.0);
-            mid_point    = QGeoCoordinate(43.0088, -78.7897, 5.0);
-            turn0_point  = QGeoCoordinate(43.0084, -78.7897, 5.0);
-            turn45_point = QGeoCoordinate(43.0085, -78.7901, 5.0);
-            turn90_point = QGeoCoordinate(43.0088, -78.7903, 5.0);
-            turn135_point= QGeoCoordinate(43.0091, -78.7901, 5.0);
+            start_point  = QGeoCoordinate(43.0093000000000032, -78.7896999999999963, 5.0);
+            mid_point    = QGeoCoordinate(43.0088000000000008, -78.7896999999999963, 5.0);
+            turn0_point  = QGeoCoordinate(43.0083810000000000, -78.7896999999999963, 5.0);
+            turn45_point = QGeoCoordinate(43.0084999999999980, -78.7900999999999954, 5.0);
+            turn90_point = QGeoCoordinate(43.0088000000000008, -78.7902700000000020, 5.0);
+            turn135_point= QGeoCoordinate(43.0090999999999966, -78.7900999999999954, 5.0);
 
 
             dest[0]  = start_point;
