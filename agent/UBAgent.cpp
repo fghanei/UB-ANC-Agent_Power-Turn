@@ -13,6 +13,8 @@
 #include "QGCApplication.h"
 
 int dest_index=0;
+int flight_direction = 180; //0  north, 90 east
+float flight_distance = 50;
 float flight_speed = 5.0;
 float target_wait_time = 1.0; //in seconds
 QGeoCoordinate dest[17], start_point, mid_point, turn0_point, turn45_point, turn90_point, turn135_point;
@@ -76,18 +78,39 @@ void UBAgent::startAgent() {
 
     m_mission_data.reset();
 
-            start_point  = QGeoCoordinate(43.0093000000000032, -78.7896999999999963, 5.0);
-            mid_point    = QGeoCoordinate(43.0088000000000008, -78.7896999999999963, 5.0);
-            turn0_point  = QGeoCoordinate(43.0083810000000000, -78.7896999999999963, 5.0);
-            turn45_point = QGeoCoordinate(43.0084999999999980, -78.7900999999999954, 5.0);
-            turn90_point = QGeoCoordinate(43.0088000000000008, -78.7902700000000020, 5.0);
-            turn135_point= QGeoCoordinate(43.0090999999999966, -78.7900999999999954, 5.0);
+//hardcode waypoints:
+start_point    = QGeoCoordinate(43.0093001, -78.7897001, 5.0);
+mid_point      = QGeoCoordinate(43.0088501, -78.7897001, 5.0);
+turn0_point    = QGeoCoordinate(43.0084011, -78.7897001, 5.0);
+turn45_point   = QGeoCoordinate(43.0085321, -78.7901351, 5.0);
+turn90_point   = QGeoCoordinate(43.0088501, -78.7903151, 5.0);
+turn135_point  = QGeoCoordinate(43.0091681, -78.7901351, 5.0);
 
+
+// generate waypoints:
+/*
+start_point   = QGeoCoordinate(43.0093001, -78.7897001, 5.0);
+mid_point     = start_point.atDistanceAndAzimuth(flight_distance, flight_direction);
+turn0_point   = mid_point.atDistanceAndAzimuth(flight_distance, flight_direction);
+turn45_point  = mid_point.atDistanceAndAzimuth(flight_distance, (flight_direction + 45)  % 360);
+turn90_point  = mid_point.atDistanceAndAzimuth(flight_distance, (flight_direction + 90)  % 360);
+turn135_point = mid_point.atDistanceAndAzimuth(flight_distance, (flight_direction + 135) % 360);
+
+
+    qInfo() << "========";
+    qInfo() << "start:   " << 43.00f << 1000000.0 * (start_point.latitude()-43.0)   << -78 << -1000000.0 * (start_point.longitude()+78.0);
+    qInfo() << "mid:     " << 43.00f << 1000000.0 * (mid_point.latitude()-43.0)     << -78 << -1000000.0 * (mid_point.longitude()+78.0);
+    qInfo() << "turn0:   " << 43.00f << 1000000.0 * (turn0_point.latitude()-43.0)   << -78 << -1000000.0 * (turn0_point.longitude()+78.0);
+    qInfo() << "turn45:  " << 43.00f << 1000000.0 * (turn45_point.latitude()-43.0)  << -78 << -1000000.0 * (turn45_point.longitude()+78.0);
+    qInfo() << "turn90:  " << 43.00f << 1000000.0 * (turn90_point.latitude()-43.0)  << -78 << -1000000.0 * (turn90_point.longitude()+78.0);
+    qInfo() << "turn135: " << 43.00f << 1000000.0 * (turn135_point.latitude()-43.0) << -78 << -1000000.0 * (turn135_point.longitude()+78.0);
+
+*/
 
             dest[0]  = start_point;
-            dest[1]  = mid_point; //must be skipped
+            dest[1]  = mid_point; 
             dest[2]  = turn0_point;
-            dest[3]  = mid_point; //must be skipped
+            dest[3]  = mid_point; 
             dest[4]  = start_point;
             dest[5]  = mid_point;
             dest[6]  = turn45_point;
@@ -101,15 +124,6 @@ void UBAgent::startAgent() {
             dest[14] = turn135_point;
             dest[15] = mid_point;
             dest[16] = start_point;
-
-            qInfo() << "========";
-            qInfo() << "start:   " << start_point;
-            qInfo() << "mid:     " << mid_point;
-            qInfo() << "turn0:   " << turn0_point;
-            qInfo() << "turn45:  " << turn45_point;
-            qInfo() << "turn90:  " << turn90_point;
-            qInfo() << "turn135: " << turn135_point;
-
 
 }
 
