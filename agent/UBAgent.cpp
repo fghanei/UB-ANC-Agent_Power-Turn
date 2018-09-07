@@ -78,14 +78,24 @@ void UBAgent::startAgent() {
 
     m_mission_data.reset();
 
-//hardcode waypoints:
+
+// hardcode west_north waypoints:
+start_point    = QGeoCoordinate(43.0088501, -78.7897001, 5.0);
+mid_point      = QGeoCoordinate(43.0088501, -78.7903151, 5.0);
+turn0_point    = QGeoCoordinate(43.0088501, -78.7909301, 5.0);
+turn45_point   = QGeoCoordinate(43.0091681, -78.7907501, 5.0);
+turn90_point   = QGeoCoordinate(43.0093001, -78.7903151, 5.0);
+turn135_point  = QGeoCoordinate(43.0091681, -78.7898801, 5.0);
+
+/*
+// hardcode south_west waypoints:
 start_point    = QGeoCoordinate(43.0093001, -78.7897001, 5.0);
 mid_point      = QGeoCoordinate(43.0088501, -78.7897001, 5.0);
 turn0_point    = QGeoCoordinate(43.0084011, -78.7897001, 5.0);
 turn45_point   = QGeoCoordinate(43.0085321, -78.7901351, 5.0);
 turn90_point   = QGeoCoordinate(43.0088501, -78.7903151, 5.0);
 turn135_point  = QGeoCoordinate(43.0091681, -78.7901351, 5.0);
-
+*/
 
 // generate waypoints:
 /*
